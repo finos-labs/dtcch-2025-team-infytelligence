@@ -6,7 +6,7 @@
 ## Project Name
 
 
-### Project Details
+### Project Detail
 
 
 ### Team Information
