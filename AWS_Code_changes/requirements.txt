@@ -1,0 +1,11 @@
+streamlit>=1.28.0
+langchain>=0.0.3
+python-dotenv>=1.0.0
+pdfplumber>=0.10.0
+reportlab>=4.0.0
+pillow>=10.0.0
+python-dateutil>=2.8.2
+requests>=2.31.0
+azure-identity>=1.12.0  # If you no longer use Azure, you can remove this
+boto3>=1.26.0           # For S3 and Bedrock
+fitz                    # or PyMuPDF (depending on install instructions)
