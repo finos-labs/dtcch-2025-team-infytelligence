@@ -198,7 +198,7 @@ if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
 
 def show(fileName):
-    st.title("Partial Call Processing")
+    st.title("3. Partial Call Processing")
     folder_path = os.path.join("Classified_PDFs", "Partial Call")
     
     if os.path.exists(folder_path):
@@ -258,10 +258,12 @@ def show(fileName):
                 # Convert to lower case and remove special characters
                 full_call_attributes['Attribute Name'] = full_call_attributes['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
                 finalData['Attribute Name'] = finalData['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
-
-               
-                st.session_state.edited_data_partialCall = pd.merge(full_call_attributes, st.session_state.response_partialCall, on='Attribute Name')
-
+                
+                if 'edited_data_partialCall' not in st.session_state:
+                    st.session_state.edited_data_partialCall = pd.merge(full_call_attributes, st.session_state.response_partialCall, on='Attribute Name')
+                # Reset index and adjust to start from 1
+                st.session_state.edited_data_partialCall.reset_index(drop=True, inplace=True)
+                st.session_state.edited_data_partialCall.index += 1  # This changes the index to start at 1
                 # Create form for data editing
                 with st.form("data_editor_form"):
                     edited_df = st.data_editor(
@@ -295,7 +297,7 @@ def show(fileName):
             email_content = generate_email(issuer_name_value, sub_issue_type_value, 'Call', attribute_names_list)
             if len(not_available_df)!=0:
                 st.session_state.email_content = email_content
-                st.subheader("Missing Data Communication Email")
+                st.subheader("4. Missing Data Communication Email")
                 base64_text = st.text_area('',email_content,height=300)
 
                 # Add a button to copy the text
