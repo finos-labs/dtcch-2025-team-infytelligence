@@ -11,7 +11,7 @@ def init_session_state():
         )
 
 def chat_interface():
-    st.title("💬 Chat with CorpAct Buddy")
+    st.subheader("💬 Chat with CorpAct Buddy")
     
 
     init_session_state()

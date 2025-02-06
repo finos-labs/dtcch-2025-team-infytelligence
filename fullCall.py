@@ -197,7 +197,7 @@ if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
 
 def show(fileName):
-    st.title("3. Full Call Processing")
+    st.subheader("3. Full Call Processing")
     folder_path = os.path.join("Classified_PDFs", "Full Call")
     
     if os.path.exists(folder_path):

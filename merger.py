@@ -192,7 +192,7 @@ if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
 
 def show(fileName):
-    st.title("3. Merger Processing")
+    st.subheader("3. Merger Processing")
     folder_path = os.path.join("Classified_PDFs", "Merger")
     
     if os.path.exists(folder_path):
