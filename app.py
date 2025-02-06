@@ -20,7 +20,7 @@ st.markdown("""
        .top-right {
            position: absolute;
            right: 20px;
-           font-size: 20px;
+           font-size: 30px;
            font-weight: bold;
        }
 </style>
@@ -53,7 +53,7 @@ with st.expander("Read Me – How to use the CA application", expanded=False):
     st.markdown("""
     **Instructions**
 
-    The purpose of this Corporate Action Application is to enable DTCC to automate the CA Event processing starting from sourcing the documents to extracting the CA Event attributes to communicating with issuer agents.
+    The purpose of this Corporate Action Utility is to enable Corporate Actions Operations Team to automate the CA Event Processing starting from sourcing the documents to extracting the CA Event attributes to communicating with agents.
     
     **Step 1:** Upload CA Notification document  
     **Step 2:** Extract the uploaded document to view the CA Event attributes  
