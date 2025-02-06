@@ -27,7 +27,7 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(), logging.FileHandler("execution_log.txt")],
 )
 st.markdown(
-    "<h1 style='text-align: center;'>Corporate Action</h1>", unsafe_allow_html=True
+    "<h1 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h1>", unsafe_allow_html=True
 )
 
 st.subheader("Upload Documents")
