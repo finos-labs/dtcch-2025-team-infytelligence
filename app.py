@@ -45,10 +45,8 @@ logging.basicConfig(
         logging.StreamHandler(),
         logging.FileHandler('execution_log.txt')
     ]
-)
-st.markdown("<h1 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h1>", unsafe_allow_html=True)
-                
 
+st.markdown("<h1 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h1>", unsafe_allow_html=True)
 
 st.subheader("1. Upload CA event Documents")
 
