@@ -100,9 +100,7 @@ def prompt(fullCallJson):
     - If field is not available, mention it as "Not Available"
     
     14.OutstandingNumberOfSecurities:
-    -Extract the number of outstanding securities at the time of redemption in numeric format. 
-    -This should be extracted from numerical value and should not be associated with any currency. If the document has any currency association (such as $1,000,000), do not extract this as outstanding number of securities.
-    - If field is not available, mention as "Not Available
+    -Extract the numeric count of outstanding securities at redemption. Only include numbers without currency symbols (e.g., ignore "$1,000,000"). If unavailable, output "Not Available".
     
     15.Premium/ CashRate:
     -Extract the premium value provided as part of the call; leave blank if no numerical value is provided.
@@ -131,8 +129,7 @@ def prompt(fullCallJson):
     - If field is not available, mention as "Not Available"
     
     21.SubIssueType:
-    -Identify the sub-issue type based on the document: mark as 'Preferred Stock' if mentioned, 'Municipal Bonds' for school districts, municipalities, or states, and "Warrant" if the documents mentions redemption for warrants, 'Corporate Bond' if a company name (e.g., Walt Disney, Apple) is mentioned.
-    -If field is not available, mention as "Not Available"
+    -IDetermine the sub-issue type: label as 'Preferred Stock' if mentioned, 'Municipal Bonds' for school districts, municipalities, or states, 'Warrant' if warrants are redeemed, or 'Corporate Bond' if a company name (e.g., Walt Disney, Apple) appears. If not available, output "Not Available".
     
     22.Trustee/Agent/PayingAgent:
     -Extract the trustee, agent, or paying agent information, which may appear as 'paying agent', 'trustee', or 'agent', often in table format or phrases like 'addressed to corporate trust office' or 'by mail addressed to'.
