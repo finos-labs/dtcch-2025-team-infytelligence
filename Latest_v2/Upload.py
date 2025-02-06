@@ -41,7 +41,7 @@ st.markdown("<h1 style='text-align: center;'>AI-Powered Corporate Action Data In
                 
 
 
-st.subheader("Upload Documents")
+st.subheader("1. Upload CA event Documents")
 
 st.markdown("""
     <style>
@@ -156,7 +156,7 @@ def search_records(df, search_id):
 
 # Search section
 if st.session_state.df is not None:
-    st.subheader("Extract Document")
+    st.subheader("2. Extract Document")
     
     search_container = st.container()
     results_container = st.container()
