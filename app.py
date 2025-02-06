@@ -20,7 +20,7 @@ st.markdown("""
        .top-right {
            position: absolute;
            right: 20px;
-           font-size: 18px;
+           font-size: 20px;
            font-weight: bold;
        }
 </style>
@@ -46,7 +46,7 @@ logging.basicConfig(
         logging.FileHandler('execution_log.txt')
     ]
 )
-st.markdown("<h1 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h1>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h2>", unsafe_allow_html=True)
                 
 
 
@@ -204,7 +204,6 @@ if st.session_state.df is not None:
                 # st.write("CA Events:", ca_events[0])
                 # Inject minimal CSS for scrollable container
                 
-                st.header("Chat with CorpAct Buddy")
                 st.markdown("""
                 <style>
                 .scroll-container {
