@@ -19,6 +19,19 @@ from chat import chat_interface
 
 st.set_page_config(layout="wide")
 
+st.markdown("""
+<style>
+       .top-right {
+           position: absolute;
+           right: 20px;
+           font-size: 18px;
+           font-weight: bold;
+       }
+</style>
+<div class="top-right">Innovate DTCC: AI-Powered Hackathon</div>
+""", unsafe_allow_html=True)
+
+
 # Initialize session state
 if 'processed_data' not in st.session_state:
     st.session_state.processed_data = None
