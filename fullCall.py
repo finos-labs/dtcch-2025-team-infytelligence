@@ -131,7 +131,7 @@ def prompt(fullCallJson):
     - If field is not available, mention as "Not Available"
     
     21.SubIssueType:
-    -Identify the sub-issue type based on the document: mark as 'Preferred Stock' if mentioned, 'Municipal Bonds' for school districts, municipalities, or states, and 'Corporate Bond' if a company name (e.g., Walt Disney, Apple) is mentioned.
+    -Identify the sub-issue type based on the document: mark as 'Preferred Stock' if mentioned, 'Municipal Bonds' for school districts, municipalities, or states, and "Warrant" if the documents mentions redemption for warrants, 'Corporate Bond' if a company name (e.g., Walt Disney, Apple) is mentioned.
     -If field is not available, mention as "Not Available"
     
     22.Trustee/Agent/PayingAgent:
