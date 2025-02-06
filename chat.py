@@ -20,7 +20,7 @@ def chat_interface():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask me anything..."):
+    if prompt := st.chat_input("Welcome back, How can I assit you with your Corporate Actions Research today?"):
 
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):

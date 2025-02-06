@@ -204,7 +204,7 @@ if st.session_state.df is not None:
                 # st.write("CA Events:", ca_events[0])
                 # Inject minimal CSS for scrollable container
                 
-                st.header("Chat with AI Assistant")
+                st.header("Chat with CorpAct Buddy")
                 st.markdown("""
                 <style>
                 .scroll-container {
