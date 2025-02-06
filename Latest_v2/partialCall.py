@@ -198,7 +198,7 @@ if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
 
 def show(fileName):
-    st.title("Partial Call Processing")
+    st.title("3. Partial Call Processing")
     folder_path = os.path.join("Classified_PDFs", "Partial Call")
     
     if os.path.exists(folder_path):
@@ -295,7 +295,7 @@ def show(fileName):
             email_content = generate_email(issuer_name_value, sub_issue_type_value, 'Call', attribute_names_list)
             if len(not_available_df)!=0:
                 st.session_state.email_content = email_content
-                st.subheader("Missing Data Communication Email")
+                st.subheader("4. Missing Data Communication Email")
                 base64_text = st.text_area('',email_content,height=300)
 
                 # Add a button to copy the text

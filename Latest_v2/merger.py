@@ -192,7 +192,7 @@ if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
 
 def show(fileName):
-    st.title("Merger Processing")
+    st.title("3. Merger Processing")
     folder_path = os.path.join("Classified_PDFs", "Merger")
     
     if os.path.exists(folder_path):
@@ -295,7 +295,7 @@ def show(fileName):
             if len(not_available_df)!=0:
                 
                 st.session_state.email_content = email_content
-                st.subheader("Missing Data Communication Email")
+                st.subheader("4. Missing Data Communication Email")
                 # st.text_area("", email_content, height=300)
                 # Create a text area for Base64 input
                 base64_text = st.text_area('',email_content,height=300)
