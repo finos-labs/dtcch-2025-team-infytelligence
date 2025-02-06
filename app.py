@@ -48,6 +48,19 @@ logging.basicConfig(
 )
 st.markdown("<h2 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h2>", unsafe_allow_html=True)
                 
+# Add a collapsible Readme panel with your instructions
+with st.expander("Read Me – How to use the CA application", expanded=False):
+    st.markdown("""
+    **Instructions**
+
+    The purpose of this Corporate Action Application is to enable DTCC to automate the CA Event processing starting from sourcing the documents to extracting the CA Event attributes to communicating with issuer agents.
+    
+    **Step 1:** Upload CA Notification document  
+    **Step 2:** Extract the uploaded document to view the CA Event attributes  
+    **Step 2a:** Review/Update the extracted attributes (The user can sort/filter/download the attributes in CSV format)  
+    **Step 3:** Leverage AI Chatbot to research attributes  
+    **Step 4:** Review the Issuer/Paying Agent email communication for missing attributes  
+    """)
 
 
 st.subheader("1. Upload CA event Documents")
