@@ -1,27 +1,29 @@
+import os
 import json
 import re
+from io import BytesIO
+from typing import Dict, TypedDict, Annotated, Sequence
 from PyPDF2 import PdfReader
+import requests
 from langchain_aws import ChatBedrock
 
 
 # Function to read PDF content
-def read_pdf(file_path):
-    content = ""
-    with open(file_path, "rb") as file:
-        reader = PdfReader(file)
-        for page in reader.pages:
+def read_pdf(file_path): 
+    content = "" 
+    with open(file_path, 'rb') as file: 
+        reader = PdfReader(file) 
+        for page in reader.pages: 
             content += page.extract_text()
     return content
 
-
 # Function to read PDF content from file-like object
-def read_pdf_from_file(file):
-    content = ""
-    reader = PdfReader(file)
-    for page in reader.pages:
+def read_pdf_from_file(file): 
+    content = "" 
+    reader = PdfReader(file) 
+    for page in reader.pages: 
         content += page.extract_text()
     return content
-
 
 # Function to convert PDFs to JSON
 def convert_pdfs_to_json(files):
@@ -31,25 +33,22 @@ def convert_pdfs_to_json(files):
         pdf_dict[filename] = pdf_content
     return pdf_dict
 
-
 # Function to save data to JSON file
 def save_to_json(data, output_file):
-    with open(output_file, "w", encoding="utf-8") as file:
+    with open(output_file, 'w', encoding='utf-8') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
-
 
 # Function to clean text
 def clean_text(text):
     # Remove lines with a low proportion of alphabetic characters
-    lines = text.split("\n")
-    cleaned_lines = lines  # [line for line in lines if len(line) > 0 and len(re.findall(r'[A-Za-z]', line)) / len(line) > 0.5]
-    cleaned_text = " ".join(cleaned_lines)
-
+    lines = text.split('\n')
+    cleaned_lines = lines #[line for line in lines if len(line) > 0 and len(re.findall(r'[A-Za-z]', line)) / len(line) > 0.5]
+    cleaned_text = ' '.join(cleaned_lines)
+    
     # Replace newline characters with spaces
-    cleaned_text = cleaned_text.replace("\n", " ")
-
+    cleaned_text = cleaned_text.replace('\n', ' ')
+    
     return cleaned_text
-
 
 # Function to clean JSON data
 def clean_json(data):
@@ -64,7 +63,7 @@ def clean_json(data):
 
 
 def create_prompt(classify):
-    return f"""Objective:
+     return f'''Objective:
  
             Classify each corporate action document from a given json document into one of the following categories:
             
@@ -73,11 +72,7 @@ def create_prompt(classify):
             2. Full Call – Documents indicating the full redemption or recall of bonds, notes, or preferred stock.
             
             3. Partial Call – Documents indicating the partial redemption of bonds, notes, or preferred stock.
-            
-            4. Exchange Offer – Documents related to offers where security holders are invited to exchange their securities for new ones, typically as part of a restructuring or corporate event.
-            
-            
-            
+             
             Classification Criteria:
             
             • Merger
@@ -91,11 +86,7 @@ def create_prompt(classify):
             • Partial Call
             
             • Keywords: (Partial Call, Partial Redemption, Callable Bond, Early Partial Redemption, Repurchase of Securities, Selective Redemption, Partial Buyback, Call Price, Redemption Amount, Par Value, Call Event, Scheduled Partial Call, Issuer Option, Bondholder Notification, Debt Reduction, Pro-Rata Redemption, Redemption in Tranches, Lottery Redemption, ISIN, CUSIP, Record Date, Payment Date, Bondholder Payment, Interest Adjustment, Retained Bonds, Remaining Principal, Fractional Repayment, Debt Restructuring, Market Conditions, Voluntary Redemption, Repayment in Installments, Regulatory Compliance, Partial Debt Clearance, Fixed Income Securities Buyback, Issuer-Initiated Redemption, Callable Instrument, Principal Reduction, Early Retirement of Debt, Capital Adjustment, Outstanding Balance Reduction)
-            
-            • Exchange Offer
-            
-            • Keywords: (Exchange Offer, Tender Offer, Security Swap, Convertible Exchange, Debt Exchange, Stock-for-Stock Exchange, Bond Exchange, Share Swap, Voluntary Exchange, Mandatory Exchange, Offer to Exchange, New Security Issuance, Exchange Ratio, Reorganization, Debt Refinancing, Liability Management, Corporate Restructuring, Bondholder Offer, Shareholder Offer, Swap Offer, Debt Restructuring, Preferred Share Exchange, Common Share Exchange, Debt Conversion, Equity Swap, Convertible Debt, Capital Adjustment, Regulatory Filing, Board Approval, Market Offer, Financial Engineering, Shareholder Consent, ISIN, CUSIP, Security Conversion, Tax Implications, Corporate Strategy, Alternative Consideration, Fixed Income Exchange, Convertible Notes, Offer Terms, Expiration Date, Minimum Participation Threshold, Redemption Alternatives, Settlement Terms, Exchange Mechanism, Reinvestment Opportunity, Voting Approval, Special Meeting, Securities Realignment, Capital Market Adjustment, Regulatory Filing, Market Adaptation, Debt Refinancing Strategy, Liquidity Enhancement, Investment Rebalancing)
-            
+           
             
             
             Task:
@@ -176,29 +167,42 @@ def create_prompt(classify):
 
             • Give the output in JSON format. Dont include anything other than the output in JSON format.
             
-            """
+            '''
 
 
 def process_pdfs(files):
     # Convert PDFs to JSON
     pdf_data = convert_pdfs_to_json(files)
+    
+    
+    
 
     # Clean the JSON data
     cleaned_pdf_data = clean_json(pdf_data)
+    
+    
 
-    cleaned_pdf_data = json.dumps(cleaned_pdf_data, indent=2)
-    print("Cleaned json :", cleaned_pdf_data)
+    cleaned_pdf_data = json.dumps(cleaned_pdf_data,indent=2)
+    print('Cleaned json :',cleaned_pdf_data)
     classify = create_prompt(cleaned_pdf_data)
-    print("classify:", classify)
+    print('classify:',classify)
     llm = ChatBedrock(
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
-        model_kwargs=dict(temperature=0),
+    model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    model_kwargs=dict(temperature=0),
     )
-    messages = [{"role": "user", "content": f"""{classify}"""}]
+    messages =[{
+           "role": "user",
+           "content": f"""{classify}"""   
+  }
+    ] 
     ai_msg = llm.invoke(messages)
-    json_part = re.search(r"\{.*\}", ai_msg.content, re.DOTALL).group()
-
-    # Parse the extracted JSON string
+    json_part = re.search(r'\{.*\}', ai_msg.content, re.DOTALL).group()
+ 
+# Parse the extracted JSON string
     documents_data = json.loads(json_part)
 
     return documents_data
+
+
+
+

@@ -2,6 +2,7 @@ import os
 from PyPDF2 import PdfReader
 import json
 import streamlit as st
+import requests
 import re
 import pandas as pd
 from streamlit_pdf_viewer import pdf_viewer
@@ -9,37 +10,35 @@ import base64
 import pyperclip
 from langchain_aws import ChatBedrock
 
-st.set_page_config(layout="wide")
 
 # Initialize session state
-if "email_content" not in st.session_state:
+if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
-if "copied" not in st.session_state:
+if 'copied' not in st.session_state:
     st.session_state.copied = False
-if "email_type" not in st.session_state:
+if 'email_type' not in st.session_state:
     st.session_state.email_type = "CA Event Email"
-if "file_path" not in st.session_state:
+if 'file_path' not in st.session_state:
     st.session_state.file_path = ""
+
 
 
 def read_pdf(file_path):
     content = ""
-    with open(file_path, "rb") as file:
+    with open(file_path, 'rb') as file:
         reader = PdfReader(file)
         for page in reader.pages:
             content += page.extract_text()
     return content
 
-
 def convert_pdfs_to_json(directory):
     pdf_dict = {}
     for filename in os.listdir(directory):
-        if filename.endswith(".pdf"):
+        if filename.endswith('.pdf'):
             file_path = os.path.join(directory, filename)
             pdf_content = read_pdf(file_path)
             pdf_dict[filename] = pdf_content
     return pdf_dict
-
 
 def prompt(fullCallJson):
     return f""" Objective: Extract and categorize entities from json containing corporate action documents related to full call redemption event.
@@ -50,14 +49,16 @@ def prompt(fullCallJson):
     1.AccruedInterest / AccruedDividend:
     -Extract the accrued interest or dividend value, either per share or cumulative, and calculate the total based on shares/bonds outstanding if provided per share.
     -Value will be in USD $
+    - If field is not available, mention as "Not Available"
     
     2.BaseCusip:
     -Extract the first 6 digits of the CUSIP
     -if multiple CUSIPs are provided, list all base CUSIPs
+    - If field is not available, mention as "Not Available"
     
     3.Class: Use each unique CUSIP as a class
     -if no CUSIP is provided, format the class based on the document's %rate, security type, and maturity date (MM/YYYY).
-
+    - If field is not available, mention as "Not Available"
     
     4.ConditionalPaymentApplicableFlag:
     -Mark as 'Yes' if terms/keywords like 'contingent payment' or 'conditional payment' are found in the document
@@ -66,72 +67,95 @@ def prompt(fullCallJson):
     
     5.ContactE-mail:
     -Extract the contact email for the Trustee, Agent, or Paying Agent mentioned in the document.
+    - If field is not available, mention as "Not Available"
     
     6.ContactPhoneNumber: Extract the phone number for the Trustee, Agent, or Paying Agent mentioned in the document.
-    
+    - If field is not available, mention as "Not Available"
+      
     7.Currency:
     -Extract the currency of the redemption. This can be derived from redemption amount, accrued interest, premium amount.
-
+    - If field is not available, mention as "Not Available"
     
     8.CUSIP:
     -Search for the 'CUSIP' keyword in the document and record the 9-digit alphanumeric identifier
     -if multiple CUSIPs are provided, list all, including those for 144a and RegS registrations.
+    - If field is not available, mention as "Not Available"
     
-    9.IssuerName:
+    9.CAEvent:
+    - Mention the event type as 'Full Call'.
+    
+    10.CAEventCategory:
+    - Whenever the CA Event is "Full Call", the CA event Category should automatically be populated as 'Redemptions'.
+    
+    11.IssuerName:
     -Extract the company name from terms/keywords like 'issuer', 'issuing entity', or 'name of registrant' if not provided explicitly as 'issuer name' or similar.
+    - If field is not available, mention as "Not Available"
     
-    10.SecuritySymbol:
+    12.SecuritySymbol:
     -Search for the keyword 'ticker' and extract the identification code; if found with the exchange name (e.g., NYSE: WMT), extract only the ticker symbol.
+    - If field is not available, mention as "Not Available"
     
-    11.Matrix:
+    13.Maturity:
     -Extract the maturity date (MM/DD/YYYY format) from terms/keyword like 'stated maturity,' 'final payment date,' or 'principal payment date'; if not provided, leave blank.
+    - If field is not available, mention as "Not Available"
     
-    12.OutstandingNumberOfSecurities:
+    14.OutstandingNumberOfSecurities:
     -Extract the number of outstanding securities at the time of redemption in numeric format
+    - If field is not available, mention as "Not Available"
     
-    13.Premium/ CashRate:
+    15.Premium/ CashRate:
     -Extract the premium value provided as part of the call; leave blank if no numerical value is provided.
+    - If field is not available, mention as "Not Available"
     
-    14.Price:
+    16.Price:
     -Extract the redemption price, either as a percentage (e.g., 100%) or a USD value (e.g., $25.00 per share), using keywords like 'redeemed at a price of' or 'redemption price'.
+    - If field is not available, mention as "Not Available"
     
-    15.PublicationDate / DatedDate / RecordDate:
-    -Extract the publication, dated, or record date (e.g., 'announcement date')
+    17.PublicationDate / DatedDate / RecordDate:
+    - Extract the publication, dated, or record date (e.g., 'announcement date')
     - if not provided, set this date to 30 days before the redemption date.
+    - If field is not available, mention as "Not Available"
     
-    16.Rate:
+    18.Rate:
     -Extract the original notes rate in percentage format (e.g., 5%)
+    - If field is not available, mention as "Not Available"
     
-    17.RedemptionAmount:
+    19.RedemptionAmount:
     -Extract the total redemption amount as a numerical value
     -if not explicitly provided, calculate it by multiplying the offering price by the outstanding number of securities, excluding any accrued interest.
+    - If field is not available, mention as "Not Available"
     
-    18.RedemptionDate:
+    20.RedemptionDate:
     -Extract the redemption date in MM/DD/YYYY format, found as a key value or in context like 'called for full redemption on July 22, 2024' or 'will be redeemed in full on August 30, 2010'.
+    - If field is not available, mention as "Not Available"
     
-    19.SubIssueType:
+    21.SubIssueType:
     -Identify the sub-issue type based on the document: mark as 'Preferred Stock' if mentioned, 'Municipal Bonds' for school districts, municipalities, or states, and 'Corporate Bond' if a company name (e.g., Walt Disney, Apple) is mentioned.
+    -If field is not available, mention as "Not Available"
     
-    20.Trustee/Agent/PayingAgent:
+    22.Trustee/Agent/PayingAgent:
     -Extract the trustee, agent, or paying agent information, which may appear as 'paying agent', 'trustee', or 'agent', often in table format or phrases like 'addressed to corporate trust office' or 'by mail addressed to'.
+    - If field is not available, mention as "Not Available"
     
     Additional Instructions for extracting:
     1. Text Extraction: Ensure the text is parsed from the pdf document accurately.
     2. Search Strategy: Utilize keyword search to locate relevant sections.
-    3.Formatting: Follow the specified output formats strictly,especially for dates and currency values.
-    4.Handling missing data: If any entity is not found, return "Not Available" for that entity in the output.
+    3. Formatting: Follow the specified output formats strictly,especially for dates and currency values.
+    4. Handling missing data: If any entity is not found, return "Not Available" for that entity in the output.
     5. If you find more than one value for an entity, combine them. Example: 'contactnumber: 1234567890, 0987654321'. Follow this for all the entities.
-    
+    6. Include all the field listed here (BaseCusip,Class,ConditionalPaymentApplicableFlag,ContactE-mail,ContactPhoneNumber,Currency,CUSIP,CAEvent,CAEventCategory,IssuerName,SecuritySymbol,Maturity,OutstandingNumberOfSecurities,Premium/ CashRate,Price,PublicationDate / DatedDate / RecordDate,Rate,RedemptionAmount,RedemptionDate,SubIssueType,Trustee/Agent/PayingAgent
+       ). If the data is not present for any of the fields, Mention it as 'Not Avilable'.
+           
     Input: A json {fullCallJson} contains document names (keys) and the content inside the PDFs (values)
     Output: extracted entities in json format.
 
     #Note: Add extracted values only when found. Do not add anything on your own. Include all the fields mentioned above.
-    """
+    """   
 
 
 def generate_email(issuer_name, security_details, event_type, missing_data):
     missing_data_list = "\n- ".join(missing_data)
-    email_template = f"""
+    email_template = f'''
 Hi <Issuer Agent/Paying Agent>,
 
 Issue summary:
@@ -149,13 +173,12 @@ Let us know if further clarification is needed.
 
 Regards,
 DTC CA Operations Team
-"""
+'''
     return email_template
-
 
 def generate_reserch_email(issuer_name, event_type, missing_data):
     missing_data_list = "\n- ".join(missing_data)
-    email_template = f"""
+    email_template = f'''
 Dear <Issuer Agent/Paying Agent>,
 
 We recently became aware of {event_type} involving {issuer_name} through public resources/news and would like to request further details for accurate and timely processing. Kindly provide the official documentation and confirm the following mandatory attributes:
@@ -167,56 +190,56 @@ Your prompt confirmation and any supporting documents would be greatly appreciat
 Regards,
 DTC CA Operations Team				
 					
-"""
+'''
     return email_template
-
-
 # Add at the beginning after imports
-if "email_type" not in st.session_state:
+if 'email_type' not in st.session_state:
     st.session_state.email_type = "CA Event Email"
-if "email_content" not in st.session_state:
+if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
-
 
 def show(fileName):
     st.title("Full Call Processing")
     folder_path = os.path.join("Classified_PDFs", "Full Call")
-
+    
     if os.path.exists(folder_path):
-        st.success("Full Call folder exists")
+        # st.success("Full Call folder exists")
         st.session_state.file_path = os.path.join(folder_path, fileName)
-        st.write(f"File path: {st.session_state.file_path}")
-        if os.path.isfile(st.session_state.file_path):
-            st.success(f"The file {fileName} is available.")
-        else:
-            st.error(f"The file {fileName} is not available.")
-
+        # st.write(f"File path: {st.session_state.file_path}")
+        # if os.path.isfile(st.session_state.file_path):
+        #     st.success(f"The file {fileName} is available.")
+        # else:
+        #     st.error(f"The file {fileName} is not available.")
+        
         # Convert PDFs to JSON
         pdf_data = read_pdf(st.session_state.file_path)
-
+        
         # Display JSON data
         if pdf_data:
             fullCallPrompt = prompt(pdf_data)
-
+            
             llm = ChatBedrock(
-                model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
-                model_kwargs=dict(temperature=0),
+            model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+            model_kwargs=dict(temperature=0),
             )
-            messages = [{"role": "user", "content": f"""{fullCallPrompt}"""}]
+            messages =[{
+                "role": "user",
+                "content": f"""{fullCallPrompt}"""   
+        }
+            ] 
             ai_msg = llm.invoke(messages)
-            json_part = re.search(r"\{.*\}", ai_msg.content, re.DOTALL).group()
-
+            json_part = re.search(r'\{.*\}', ai_msg.content, re.DOTALL).group()
+            
+            
+ 
             # Parse the extracted JSON string
             documents_data = json.loads(json_part)
             # st.json(documents_data)
-            finalData = pd.read_json(json.dumps(documents_data), orient="index")
-
+            finalData =  pd.read_json(json.dumps(documents_data), orient='index')
+            
             # Convert JSON to DataFrame
-            finalData = pd.DataFrame(
-                list(documents_data.items()),
-                columns=["Attribute Name", "Extracted Value"],
-            )
-
+            finalData = pd.DataFrame(list(documents_data.items()), columns=['Attribute Name', 'Extracted Value'])
+            st.session_state.response_fullCall = finalData
             # Divide the layout into two columns
             container_pdf, container_chat = st.columns([2, 1])
 
@@ -225,7 +248,7 @@ def show(fileName):
                 try:
                     with open(st.session_state.file_path, "rb") as pdf_file:
                         binary_data = pdf_file.read()
-                        base64_pdf = base64.b64encode(binary_data).decode("utf-8")
+                        base64_pdf = base64.b64encode(binary_data).decode('utf-8')
                         pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
                         st.markdown(pdf_display, unsafe_allow_html=True)
                 except FileNotFoundError:
@@ -235,95 +258,60 @@ def show(fileName):
             with container_chat:
                 full_call_attributes = pd.read_csv("./Data/attributeList.csv")
                 # Convert to lower case and remove special characters
-                full_call_attributes["Attribute Name"] = (
-                    full_call_attributes["Attribute Name"]
-                    .str.lower()
-                    .str.replace("[^a-z0-9]", "", regex=True)
-                )
-                finalData["Attribute Name"] = (
-                    finalData["Attribute Name"]
-                    .str.lower()
-                    .str.replace("[^a-z0-9]", "", regex=True)
-                )
+                full_call_attributes['Attribute Name'] = full_call_attributes['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
+                finalData['Attribute Name'] = finalData['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
+                
+                
+                st.session_state.edited_data_fullCall = pd.merge(full_call_attributes, st.session_state.response_fullCall, on='Attribute Name')
 
-                merged_df = pd.merge(
-                    full_call_attributes, finalData, on="Attribute Name"
-                )
-                # st.dataframe(merged_df)
+                # Create form for data editing
+                with st.form("data_editor_form"):
+                    edited_df = st.data_editor(
+                        st.session_state.edited_data_fullCall,
+                        key='data_editor',
+                        column_config={
+                            'Attribute Name': {'editable': False},
+                            'Attribute Type': {'editable': False},
+                            'Extracted Value': {'editable': False}
+                        },
+                        disabled=False,
+                        height=500
+                    )
+                    
+                    submit_button = st.form_submit_button("Save Changes")
+                    
+                    if submit_button:
+                        st.session_state.edited_data = edited_df
+                        st.success("Changes saved successfully!")
+                
+                not_available_df = edited_df[edited_df['Extracted Value'] == "Not Available"]
 
-                edited_df = st.data_editor(
-                    merged_df,
-                    column_config={
-                        "Attribute Name": {"editable": False},
-                        "Attribute Type": {"editable": False},
-                        "Extracted Value": {"editable": False},
-                    },
-                )
+            
+            st.write("")
+            issuer_name_value = edited_df.loc[edited_df['Attribute Name'] == "issuername", "Extracted Value"].values[0]
 
-                not_available_df = edited_df[
-                    edited_df["Extracted Value"] == "Not Available"
-                ]
+            sub_issue_type_value = edited_df.loc[edited_df['Attribute Name'] == "subissuetype", "Extracted Value"].values[0]
 
-            container1, container2 = st.columns([1, 1])
-
-            with container1:
-
-                st.write("")
-                issuer_name_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "issuername", "Extracted Value"
-                ].values[0]
-
-                sub_issue_type_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "subissuetype", "Extracted Value"
-                ].values[0]
-
-                attribute_names = not_available_df["Attribute Name"]
-                attribute_names_list = attribute_names.tolist()
-
-                email_content = generate_email(
-                    issuer_name_value,
-                    sub_issue_type_value,
-                    "Call",
-                    attribute_names_list,
-                )
-
+            attribute_names = not_available_df['Attribute Name']
+            attribute_names_list = attribute_names.tolist()
+            
+            email_content = generate_email(issuer_name_value, sub_issue_type_value, 'Call', attribute_names_list)
+            if len(not_available_df)!=0:
                 st.session_state.email_content = email_content
-                st.subheader("CA Event Email Draft")
-
-                base64_text = st.text_area("", email_content, height=300)
+                st.subheader("Missing Data Communication Email")
+                
+                
+                base64_text = st.text_area('',email_content,height=300)
 
                 # Add a button to copy the text
-                if st.button("Copy "):
+                if st.button('Copy '):
                     pyperclip.copy(base64_text)
-                    st.success("Text copied successfully!")
+                    st.success('Text copied successfully!')
 
-            with container2:
-
-                st.write("")
-                issuer_name_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "issuername", "Extracted Value"
-                ].values[0]
-
-                sub_issue_type_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "subissuetype", "Extracted Value"
-                ].values[0]
-
-                attribute_names = not_available_df["Attribute Name"]
-                attribute_names_list = attribute_names.tolist()
-
-                email_content_2 = generate_reserch_email(
-                    issuer_name_value, "Call", attribute_names_list
-                )
-                st.subheader("CA Research Email Draft")
-                base64_text_2 = st.text_area("", email_content_2, height=300)
-
-                # Add a button to copy the text
-                if st.button("Copy"):
-                    pyperclip.copy(base64_text_2)
-                    st.success("Text copied successfully!")
 
             # with open("C:/Users/yashvant.sridharan/myenv/Data/report.png", "rb") as img_file:
             #     img_bytes = img_file.read()
+
 
             # st.download_button(
             #     label="Download Report",
@@ -331,18 +319,19 @@ def show(fileName):
             #     file_name="report.png",
             #     mime="image/png",
             # )
-            st.subheader("Notification Document")
-            if len(not_available_df) != 0:
+            
+            if len(not_available_df) == 0:
+                st.subheader("Notification Document")
                 # Specify the path to your PDF document
                 reportPath = "./Data/Notifications_Template.pdf"
 
                 # Read the PDF document from the specified path
                 try:
-                    with open(reportPath, "rb") as pdf_file:
+                    with open(reportPath, 'rb') as pdf_file:
                         binary_data = pdf_file.read()
 
                     # Encode the binary data to base64
-                    base64_pdf = base64.b64encode(binary_data).decode("utf-8")
+                    base64_pdf = base64.b64encode(binary_data).decode('utf-8')
 
                     # Create the HTML iframe to display the PDF document
                     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
@@ -350,10 +339,9 @@ def show(fileName):
                     # Display the iframe in Streamlit
                     st.markdown(pdf_display, unsafe_allow_html=True)
                 except FileNotFoundError:
-                    st.error(
-                        f"The file at {reportPath} was not found. Please check the path and try again."
-                    )
+                    st.error(f"The file at {reportPath} was not found. Please check the path and try again.")
 
+            
         else:
             st.warning("No PDF files found in the folder")
     else:

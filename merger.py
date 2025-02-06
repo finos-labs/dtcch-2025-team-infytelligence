@@ -2,44 +2,45 @@ import os
 from PyPDF2 import PdfReader
 import json
 import streamlit as st
+import requests
 import re
 import pandas as pd
+from streamlit_pdf_viewer import pdf_viewer
 import base64
 import pyperclip
 from langchain_aws import ChatBedrock
 
-if "copy_clicked" not in st.session_state:
+if 'copy_clicked' not in st.session_state:
     st.session_state.copy_clicked = False
 
 # Initialize session state
-if "response_merger" not in st.session_state:
+if 'response_merger' not in st.session_state:
     st.session_state.response_merger = ""
-
-if "file_path" not in st.session_state:
+    
+if 'file_path' not in st.session_state:
     st.session_state.file_path = ""
+    
 
 
 def read_pdf(file_path):
     content = ""
-    with open(file_path, "rb") as file:
+    with open(file_path, 'rb') as file:
         reader = PdfReader(file)
         for page in reader.pages:
             content += page.extract_text()
     return content
 
-
 def convert_pdfs_to_json(directory):
     pdf_dict = {}
     for filename in os.listdir(directory):
-        if filename.endswith(".pdf"):
+        if filename.endswith('.pdf'):
             file_path = os.path.join(directory, filename)
             pdf_content = read_pdf(file_path)
             pdf_dict[filename] = pdf_content
     return pdf_dict
 
-
 def prompt(merger):
-    return f""" 
+ return f""" 
            Objective: Extract and categorize entities from Markdown text containing corporate action documents related to a merger event. Ensure precision in identifying and structuring the extracted data.
 
 Entities to extract:
@@ -55,71 +56,95 @@ Entities to extract:
 3. AcquiringCompany:
    - Look for: Company A (acquiring company) "with and into" Company B (Target Company).
    - Identify the company mentioned as the acquirer or the entity that will survive the merger.
+   - If field is not available, mention as "Not Available"
 
 4. TargetCompany:
    - Look for: Company A (acquiring company) "with and into" Company B (Target Company).
    - Identify the company mentioned as the target or the entity that will be merged into the acquiring company.
+   - If field is not available, mention as "Not Available"
 
 5. AnnouncementDate:
    - The announcement date refers to the day when the companies involved in the merger or acquisition make the formal public announcement of the deal.
    - Look for phrases like "announcement date," "date of the announcement," or similar terms.
+   - If field is not available, mention as "Not Available"
 
 6. RecordDate:
    - The record date is the date used to determine which shareholders are eligible to receive the merger consideration, such as cash or shares in the acquirer.
    - Look for phrases like "record date," "date of record," or similar terms.
+   - If field is not available, mention as "Not Available"
 
 7. EffectiveDate:
    - The effective date is the date when the merger or acquisition is formally and legally consummated, and the deal is effective under the terms agreed upon in the merger agreement.
    - Look for phrases like "effective date," "date of effectiveness," or similar terms.
+   - If field is not available, mention as "Not Available"
 
 8. PaymentDate:
    - The payment date is the date when the consideration (e.g., cash, stock, or other forms of payment) is actually paid or delivered to the shareholders of the target company.
    - Look for phrases like "payment date," "date of payment," or similar terms.
+   - If field is not available, mention as "Not Available"
 
 9. ExchangeRatio:
    - Securities and Cash & Securities Transaction - how many shares of the acquiring company (acquirer) a target company's shareholder will receive for each share of the target company they hold.
    - Look for phrases like "exchange ratio," "conversion ratio," or similar terms.
+   - If field is not available, mention as "Not Available"
 
 10. CashAmount:
     - Transactions in Cash - Value per share for the target company.
     - Look for phrases like "cash amount," "cash consideration," or similar terms.
+    - If field is not available, mention as "Not Available"
 
 11. DealValue:
     - The deal value in the context of a merger refers to the total value of the transaction being undertaken between the two companies involved, typically expressed in monetary terms.
     - Look for phrases like "deal value," "total consideration," or similar terms.
+    - If field is not available, mention as "Not Available"
 
 12. Additions / Premiums:
     - Any Right as per the CVR agreement.
     - Look for phrases like "contingent value right," "CVR," or similar terms.
-    - Mention only the CVR Count. Example: '1 CVR' 
+    - Mention only the CVR Count. Example: '1 CVR'
+    - If field is not available, mention as "Not Available" 
 
 13. TargetCompanyOwnershipDistributionPostTransaction:
     - Details how ownership of the combined entity will be split and how much will the target company own?
     - Scenario:  Shareholders: Expected to own ~31% of the combined company. So it'll be 31%.
     - Mention the percentage only.
+    - If field is not available, mention as "Not Available"
 
 14. CombinedPrimaryExchange:
     - Exchange where the company is traded.
     - Look for phrases like "primary exchange," "stock exchange," or similar terms.
+    - If field is not available, mention as "Not Available"
 
 15. VotingRequired:
     - Shareholders are usually given the option to vote at a specially convened meeting or through a proxy vote, where they can vote in favor, against, or abstain from the merger.
     - Look for phrases like "voting required," "shareholder vote," or similar terms.
+    - If field is not available, mention as "Not Available"
+
+16. Currency:
+    - Represents the currency of Merger. This will be derived from merger/acquisition amount or anywhere in the document which has currency symbol.
+    - If field is not available, mention as "Not Available"
+
+17. CUSIP/ ISIN/ RIC/ SEDOL: 
+    - CUSIP is a 9-digit alphanumerical identifier and ISIN is a 12-digit alphanumerical identifier, uniquely assigned to each issue/class/tranche. There may be multiple CUSIPs/ ISINs. Search for "CUSIP", "ISIN" keyword in the documents. If for 1 CUSIP/ ISIN is provided for 1 issue, mention it; if multiple list them all.
+    - If field is not available, mention as "Not Available"
     
 Additional Instructions for extracting:
 
-1.Text Extraction: Ensure the text is parsed from the document accurately.
-2.Search Strategy: Utilize keyword search to locate relevant sections.
-3.Formatting: Follow the specified output formats strictly, especially for dates and currency values.
-4.Handling missing data: If any entity is not found, return "Not Available" for that entity in the output.
+1. Text Extraction: Ensure the text is parsed from the document accurately.
+2. Search Strategy: Utilize keyword search to locate relevant sections.
+3. Formatting: Follow the specified output formats strictly, especially for dates and currency values.
+4. Handling missing data: If any entity is not found, return "Not Available" for that entity in the output.
 5. If you find more than one value for an entity, combine them. Example: 'contactnumber: 1234567890, 0987654321'. Follow this for all the entities.
+6. Include all the field listed here (,CAEvent,CASubEvent,AcquiringCompany,TargetCompany,AnnouncementDate,RecordDate,EffectiveDate,PaymentDate,ExchangeRatio,CashAmount,DealValue,Additions / Premiums,TargetCompanyOwnershipDistributionPostTransaction,CombinedPrimaryExchange,VotingRequired,Currency,CUSIP/ ISIN/ RIC/ SEDOL
+    ). If the data is not present for any of the fields, Mention it as 'Not Avilable'.
 
 Input: A Markdown text {merger}
 Output: Extracted entities in JSON format.
 
 Note: Add extracted values only when found. Do not add anything on your own. Include all the fields mentioned above.
-"""
-
+"""  
+    
+    
 
 def generate_email(issuer_name, security_details, event_type, missing_data):
     missing_data_list = "\n- ".join(missing_data)
@@ -144,7 +169,6 @@ DTC CA Operations Team
 """
     return email_template
 
-
 def generate_reserch_email(issuer_name, event_type, missing_data):
     missing_data_list = "\n- ".join(missing_data)
     email_template = f"""
@@ -161,53 +185,52 @@ DTC CA Operations Team
 					
 """
     return email_template
-
-
 # Add at the beginning after imports
-if "email_type" not in st.session_state:
+if 'email_type' not in st.session_state:
     st.session_state.email_type = "CA Event Email"
-if "email_content" not in st.session_state:
+if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
-
 
 def show(fileName):
     st.title("Merger Processing")
     folder_path = os.path.join("Classified_PDFs", "Merger")
-
+    
     if os.path.exists(folder_path):
-        st.success("Merger folder exists")
+        # st.success("Merger folder exists")
         st.session_state.file_path = os.path.join(folder_path, fileName)
-        st.write(f"File path: {st.session_state.file_path}")
-        if os.path.isfile(st.session_state.file_path):
-            st.success(f"The file {fileName} is available.")
-        else:
-            st.error(f"The file {fileName} is not available.")
-
+        # st.write(f"File path: {st.session_state.file_path}")
+        # if os.path.isfile(st.session_state.file_path):
+        #     st.success(f"The file {fileName} is available.")
+        # else:
+        #     st.error(f"The file {fileName} is not available.")
+        
         # Convert PDFs to JSON
         pdf_data = read_pdf(st.session_state.file_path)
-
+        
         # Display JSON data
         if pdf_data:
             fullCallPrompt = prompt(pdf_data)
-            print("this is the prompt of merger", fullCallPrompt)
+            print("this is the prompt of merger",fullCallPrompt)
             llm = ChatBedrock(
-                model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
-                model_kwargs=dict(temperature=0),
+            model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+            model_kwargs=dict(temperature=0),
             )
-            messages = [{"role": "user", "content": f"""{fullCallPrompt}"""}]
+            messages =[{
+                "role": "user",
+                "content": f"""{fullCallPrompt}"""   
+        }
+            ] 
             ai_msg = llm.invoke(messages)
-            json_part = re.search(r"\{.*\}", ai_msg.content, re.DOTALL).group()
-
+            json_part = re.search(r'\{.*\}', ai_msg.content, re.DOTALL).group()
+        
+       
             # Parse the extracted JSON string
             documents_data = json.loads(json_part)
             # st.json(documents_data)
-            finalData = pd.read_json(json.dumps(documents_data), orient="index")
-
+            finalData =  pd.read_json(json.dumps(documents_data), orient='index')
+            
             # Convert JSON to DataFrame
-            finalData = pd.DataFrame(
-                list(documents_data.items()),
-                columns=["Attribute Name", "Extracted Value"],
-            )
+            finalData = pd.DataFrame(list(documents_data.items()), columns=['Attribute Name', 'Extracted Value'])
             st.session_state.response_merger = finalData
             # Divide the layout into two columns
             container_pdf, container_chat = st.columns([2, 1])
@@ -217,7 +240,7 @@ def show(fileName):
                 try:
                     with open(st.session_state.file_path, "rb") as pdf_file:
                         binary_data = pdf_file.read()
-                        base64_pdf = base64.b64encode(binary_data).decode("utf-8")
+                        base64_pdf = base64.b64encode(binary_data).decode('utf-8')
                         pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
                         st.markdown(pdf_display, unsafe_allow_html=True)
                 except FileNotFoundError:
@@ -225,123 +248,79 @@ def show(fileName):
 
             # Display the DataFrame in the second column
             with container_chat:
-                full_call_attributes = pd.read_csv(r".\Data\meregrAttribute.csv")
+                file_path = os.path.join(os.getcwd(), "Data", "meregrAttribute.csv")
+                if os.path.exists(file_path):
+                    full_call_attributes = pd.read_csv(file_path)
+                else:
+                    st.error(f"File not found: {file_path}")
                 # Convert to lower case and remove special characters
-                full_call_attributes["Attribute Name"] = (
-                    full_call_attributes["Attribute Name"]
-                    .str.lower()
-                    .str.replace("[^a-z0-9]", "", regex=True)
-                )
-                finalData["Attribute Name"] = (
-                    finalData["Attribute Name"]
-                    .str.lower()
-                    .str.replace("[^a-z0-9]", "", regex=True)
-                )
+                full_call_attributes['Attribute Name'] = full_call_attributes['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
+                finalData['Attribute Name'] = finalData['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
+                
+                st.session_state.edited_data_merger = pd.merge(full_call_attributes, st.session_state.response_merger, on='Attribute Name')
 
-                merged_df = pd.merge(
-                    full_call_attributes,
-                    st.session_state.response_merger,
-                    on="Attribute Name",
-                )
-
-                edited_df = st.data_editor(
-                    merged_df,
-                    column_config={
-                        "Attribute Name": {"editable": False},
-                        "Attribute Type": {"editable": False},
-                        "Extracted Value": {"editable": False},
-                    },
-                )
-
+                # Create form for data editing
+                with st.form("data_editor_form"):
+                    edited_df = st.data_editor(
+                        st.session_state.edited_data_merger,
+                        key='data_editor',
+                        column_config={
+                            'Attribute Name': {'editable': False},
+                            'Attribute Type': {'editable': False},
+                            'Extracted Value': {'editable': False}
+                        },
+                        disabled=False,
+                        height=500
+                    )
+                    
+                    submit_button = st.form_submit_button("Save Changes")
+                    
+                    if submit_button:
+                        st.session_state.edited_data = edited_df
+                        st.success("Changes saved successfully!")
+                
                 # st.dataframe(merged_df)
+                
+                not_available_df = edited_df[edited_df['Extracted Value'] == "Not Available"]
 
-                not_available_df = edited_df[
-                    edited_df["Extracted Value"] == "Not Available"
-                ]
+            
+                
+            st.write("")
+            issuer_name_value = edited_df.loc[edited_df['Attribute Name'] == "acquiringcompany", "Extracted Value"].values[0]
 
-            container1, container2 = st.columns([1, 1])
+            sub_issue_type_value = edited_df.loc[edited_df['Attribute Name'] == "casubevent", "Extracted Value"].values[0]
 
-            with container1:
-
-                st.write("")
-                issuer_name_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "acquiringcompany", "Extracted Value"
-                ].values[0]
-
-                sub_issue_type_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "casubevent", "Extracted Value"
-                ].values[0]
-
-                attribute_names = not_available_df["Attribute Name"]
-                attribute_names_list = attribute_names.tolist()
-
-                email_content = generate_email(
-                    issuer_name_value,
-                    sub_issue_type_value,
-                    "Merger",
-                    attribute_names_list,
-                )
-
+            attribute_names = not_available_df['Attribute Name']
+            attribute_names_list = attribute_names.tolist()
+            
+            email_content = generate_email(issuer_name_value, sub_issue_type_value, 'Merger', attribute_names_list)
+            if len(not_available_df)!=0:
+                
                 st.session_state.email_content = email_content
-                st.subheader("CA Event Email Draft")
+                st.subheader("Missing Data Communication Email")
                 # st.text_area("", email_content, height=300)
                 # Create a text area for Base64 input
-                base64_text = st.text_area("", email_content, height=300)
+                base64_text = st.text_area('',email_content,height=300)
 
                 # Add a button to copy the text
-                if st.button("Copy "):
+                if st.button('Copy '):
                     pyperclip.copy(base64_text)
-                    st.success("Text copied successfully!")
+                    st.success('Text copied successfully!')
 
-            with container2:
+                
 
-                st.write("")
-                issuer_name_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "acquiringcompany", "Extracted Value"
-                ].values[0]
-
-                sub_issue_type_value = edited_df.loc[
-                    edited_df["Attribute Name"] == "casubevent", "Extracted Value"
-                ].values[0]
-
-                attribute_names = not_available_df["Attribute Name"]
-                attribute_names_list = attribute_names.tolist()
-
-                email_content_2 = generate_reserch_email(
-                    issuer_name_value, "Merger", attribute_names_list
-                )
-                st.subheader("CA Research Email Draft")
-                # st.text_area("", email_content, height=300)
-
-                base64_text_2 = st.text_area("", email_content_2, height=300)
-
-                # Add a button to copy the text
-                if st.button("Copy"):
-                    pyperclip.copy(base64_text_2)
-                    st.success("Text copied successfully!")
-
-            # with open("C:/Users/yashvant.sridharan/myenv/Data/report.png", "rb") as img_file:
-            #     img_bytes = img_file.read()
-
-            # st.download_button(
-            #     label="Download Report",
-            #     data=img_bytes,
-            #     file_name="report.png",
-            #     mime="image/png",
-            # )
-            st.subheader("Notification Document")
-
-            if len(not_available_df) != 0:
+            if len(not_available_df)==0:
+                st.subheader("Notification Document")
                 # Specify the path to your PDF document
                 reportPath = "./Data/Notifications_Template.pdf"
 
                 # Read the PDF document from the specified path
                 try:
-                    with open(reportPath, "rb") as pdf_file:
+                    with open(reportPath, 'rb') as pdf_file:
                         binary_data = pdf_file.read()
 
                     # Encode the binary data to base64
-                    base64_pdf = base64.b64encode(binary_data).decode("utf-8")
+                    base64_pdf = base64.b64encode(binary_data).decode('utf-8')
 
                     # Create the HTML iframe to display the PDF document
                     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
@@ -349,10 +328,8 @@ def show(fileName):
                     # Display the iframe in Streamlit
                     st.markdown(pdf_display, unsafe_allow_html=True)
                 except FileNotFoundError:
-                    st.error(
-                        f"The file at {reportPath} was not found. Please check the path and try again."
-                    )
-
+                    st.error(f"The file at {reportPath} was not found. Please check the path and try again.")
+            
         else:
             st.warning("No PDF files found in the folder")
     else:
