@@ -264,6 +264,10 @@ def show(fileName):
                 if 'edited_data_fullCall' not in st.session_state:
                     st.session_state.edited_data_fullCall = pd.merge(full_call_attributes, st.session_state.response_fullCall, on='Attribute Name')
 
+                # Reset index and adjust to start from 1
+                    st.session_state.edited_data_fullCall.reset_index(drop=True, inplace=True)
+                    st.session_state.edited_data_fullCall.index += 1  # This changes the index to start at 1
+
                 # Create form for data editing
                 with st.form("data_editor_form"):
                     edited_df = st.data_editor(
@@ -272,7 +276,13 @@ def show(fileName):
                         column_config={
                             'Attribute Name': {'editable': False},
                             'Attribute Type': {'editable': False},
-                            'Extracted Value': {'editable': False}
+                            'Extracted Value': {
+                                'editable': False,
+                                'style': {
+                                    # Conditional styling for "Not Available" values
+                                    'style': lambda value: {"color": "red"} if value == "Not Available" else None
+                                }
+                            }
                         },
                         disabled=False,
                         height=500
