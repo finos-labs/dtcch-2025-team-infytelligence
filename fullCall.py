@@ -97,11 +97,12 @@ def prompt(fullCallJson):
     
     13.Maturity:
     -Extract the maturity date (MM/DD/YYYY format) from terms/keyword like 'stated maturity,' 'final payment date,' or 'principal payment date'; if not provided, leave blank.
-    - If field is not available, mention as "Not Available"
+    - If field is not available, mention it as "Not Available"
     
     14.OutstandingNumberOfSecurities:
-    -Extract the number of outstanding securities at the time of redemption in numeric format
-    - If field is not available, mention as "Not Available"
+    -Extract the number of outstanding securities at the time of redemption in numeric format. 
+    -This should be extracted from numerical value and should not be associated with any currency. If the document has any currency association (such as $1,000,000), do not extract this as outstanding number of securities.
+    - If field is not available, mention as "Not Available
     
     15.Premium/ CashRate:
     -Extract the premium value provided as part of the call; leave blank if no numerical value is provided.
