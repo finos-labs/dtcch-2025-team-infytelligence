@@ -19,7 +19,7 @@ if 'response_merger' not in st.session_state:
     
 if 'file_path' not in st.session_state:
     st.session_state.file_path = ""
-    
+
 
 
 def read_pdf(file_path):
@@ -192,7 +192,7 @@ if 'email_content' not in st.session_state:
     st.session_state.email_content = ""
 
 def show(fileName):
-    st.title("Merger Processing")
+    st.title("3. Merger Processing")
     folder_path = os.path.join("Classified_PDFs", "Merger")
     
     if os.path.exists(folder_path):
@@ -256,9 +256,13 @@ def show(fileName):
                 # Convert to lower case and remove special characters
                 full_call_attributes['Attribute Name'] = full_call_attributes['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
                 finalData['Attribute Name'] = finalData['Attribute Name'].str.lower().str.replace('[^a-z0-9]', '', regex=True)
-                
-                st.session_state.edited_data_merger = pd.merge(full_call_attributes, st.session_state.response_merger, on='Attribute Name')
 
+                # Initialize data outside widget area
+                if 'edited_data_merger' not in st.session_state:
+                    st.session_state.edited_data_merger = pd.merge(full_call_attributes, st.session_state.response_merger, on='Attribute Name')
+                # Reset index and adjust to start from 1
+                st.session_state.edited_data_merger.reset_index(drop=True, inplace=True)
+                st.session_state.edited_data_merger.index += 1  # This changes the index to start at 1
                 # Create form for data editing
                 with st.form("data_editor_form"):
                     edited_df = st.data_editor(
@@ -297,7 +301,7 @@ def show(fileName):
             if len(not_available_df)!=0:
                 
                 st.session_state.email_content = email_content
-                st.subheader("Missing Data Communication Email")
+                st.subheader("4. Missing Data Communication Email")
                 # st.text_area("", email_content, height=300)
                 # Create a text area for Base64 input
                 base64_text = st.text_area('',email_content,height=300)
