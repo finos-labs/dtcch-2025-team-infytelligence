@@ -46,6 +46,8 @@ logging.basicConfig(
         logging.FileHandler('execution_log.txt')
     ]
 )
+st.markdown("", unsafe_allow_html=True)
+st.markdown("", unsafe_allow_html=True)
 st.markdown("<h2 style='text-align: center;'>AI-Powered Corporate Action Data Ingestion</h2>", unsafe_allow_html=True)
                 
 # Add a collapsible Readme panel with your instructions
